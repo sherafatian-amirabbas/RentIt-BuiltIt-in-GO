@@ -1,0 +1,4 @@
+FROM golang:alpine as builder
+WORKDIR /src/todos-cli
+COPY . .
+ENTRYPOINT ["go", "test", "Test/frontend_test.go"]

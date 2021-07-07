@@ -1,0 +1,4 @@
+FROM golang:alpine as builder
+WORKDIR src/esi-homework1-backend
+COPY . .
+ENTRYPOINT ["go", "test", "Test/main_test.go"]

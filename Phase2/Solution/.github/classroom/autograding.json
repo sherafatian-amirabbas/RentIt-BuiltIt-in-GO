@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "name": "Test",
+      "setup": "",
+      "run": "docker build -t rentit:1.0 . && docker-compose up --no-start && docker-compose run -d rentit && docker-compose ps && docker-compose run rentit-test && docker-compose down",
+      "input": "",
+      "output": "",
+      "comparison": "included",
+      "timeout": 5,
+      "points": 2
+    }
+  ]
+}

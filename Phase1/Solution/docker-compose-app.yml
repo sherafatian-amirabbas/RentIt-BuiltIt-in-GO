@@ -1,0 +1,23 @@
+version: "3.3"
+services:
+    backend:
+        ports: 
+            - "90:8000"
+        image: localhost:5000/backend
+        container_name: backend_container
+        
+    backend-test:
+        image: localhost:5000/backend_test
+        container_name: backend_test_container
+        
+    frontend:
+        image: localhost:5000/frontend
+        container_name: frontend_container
+        
+    frontend-test:
+        image: localhost:5000/frontend_test
+        container_name: frontend_test_container
+        environment:
+            - ESI_HOMEWORK1_API_HOST=172.17.0.1:90 # host.docker.internal for windows host
+        depends_on: 
+            - backend

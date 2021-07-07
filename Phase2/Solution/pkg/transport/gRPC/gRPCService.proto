@@ -1,0 +1,67 @@
+syntax = "proto3";
+package grpc;
+option go_package = ".;grpc";
+
+/**
+ * Service for handling plant information
+*/
+service gRPCService {
+  // Fetches all the plants in the repository
+  rpc GetAllPlants(PlantsRequest) returns (PlantsResponse) {};
+
+  // Fetches the total plant price for a duration
+  rpc GetPlantPrice(PlantPriceRequest) returns (PlantPriceResponse) {};
+
+  // Checks whether the selected plant is available within a timeframe
+  rpc IsPlantAvailable(PlantAvailabilityRequest) returns (PlantAvailabilityResponse) {};
+}
+
+message PlantsRequest {}
+
+/**
+ * Represents a plant
+*/
+message Plant {
+  int64 Id = 1; // Unique ID of a plant
+	string Name = 2; // Name of the machine
+	string Description = 3; // Description of the machine
+	double PricePerDay = 4; // Daily cost of the machine
+}
+
+
+message PlantsResponse {
+  repeated Plant items = 1; // Fetched plant items
+}
+
+message PlantPriceRequest {
+  int64 Id = 1; // ID of the plant to be fetched
+  string startDate = 2; // Start date of the duration
+  string endDate = 3; // End date of the duration
+}
+
+/**
+ * Represents a plant's price for a duration
+*/
+message PlantPrice {
+  int64 PlantId = 1; // ID of the plant
+	string StartDate = 2; // Start date of the duration
+	string EndDate = 3; // End date of the duration
+	double PricePerDuration = 4; // Total price for duration (PricePerDay * days)
+}
+
+message PlantPriceResponse {
+  PlantPrice item = 1; // Generated plant price item
+}
+
+message PlantAvailabilityRequest {
+  int64 Id = 1; // ID of the plant to be fetched
+  string startDate = 2; // Start date of the duration
+  string endDate = 3; // End date of the duration
+}
+
+/**
+ * Represents a plants availability for a given time duration
+*/
+message PlantAvailabilityResponse {
+  bool isAvailable = 1; // Availability of the plant during the selected timeframe
+}

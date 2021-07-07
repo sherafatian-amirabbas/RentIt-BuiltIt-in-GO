@@ -1,0 +1,20 @@
+version: "3.3"
+services:
+    proxy-backend:
+        image: localhost:5000/backend
+        container_name: proxy-backend_container
+
+    proxy-metube:
+        image: alexta69/metube
+        volumes: 
+            [./docker-compose-proxy-assets/metube/downloads:/downloads]
+        environment:
+            URL_PREFIX: /
+        container_name: proxy-metube_container
+
+    proxy:
+        ports:
+            - 80:80
+        image: localhost:5000/proxy
+        container_name: proxy_container
+

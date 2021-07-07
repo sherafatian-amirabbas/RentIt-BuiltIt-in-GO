@@ -1,0 +1,121 @@
+name: Go
+
+on: [ push ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v2.5.1
+      with:
+        version: latest
+        args: --out-format=tab
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15
+
+    - name: Build
+      run: go build -v ./...
+      
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Docker build
+      run: docker-compose build
+      
+    - name: Docker run tests
+      run: docker-compose up --abort-on-container-exit
+      
+    - name: Tag image
+      run: docker tag buildit:latest ${{ secrets.dockerRegistry }}/buildit:${{ github.run_number }}
+      
+    - name: Tag postgres image
+      run: docker tag postgres:latest ${{ secrets.dockerRegistry }}/postgres:${{ github.run_number }}
+      
+    - name: Add insecure registry
+      run: echo '{ "insecure-registries":["${{ secrets.dockerRegistry }}"] }' | sudo tee /etc/docker/daemon.json
+      
+    - name: Restart docker
+      run: sudo systemctl restart docker
+      
+    - name: Push to registry
+      run: docker push ${{ secrets.dockerRegistry }}/buildit:${{ github.run_number }}
+      
+    - name: Push postgres to registry
+      run: docker push ${{ secrets.dockerRegistry }}/postgres:${{ github.run_number }}
+      
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v2.2.3
+      with:
+        path: ./deploy/docker-compose.yml
+        name: build-${{ github.run_number }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: ['lint', 'test']
+    steps:
+    - name: Download a Build Artifact
+      uses: actions/download-artifact@v2.0.9
+      with:
+        name: build-${{ github.run_number }}
+    
+    - name: Variable Substitution
+      uses: microsoft/variable-substitution@v1
+      with:
+          files: ./docker-compose.yml
+      env:
+        services.postgres.environment.POSTGRES_USER: ${{ secrets.postgresUser }}
+        services.postgres.environment.POSTGRES_PASSWORD: ${{ secrets.postgresPassword }}
+        services.builit.environment.postgresConnectionString: ${{ secrets.postgresConnectionString }}
+    
+    - name: SSH tag latest postgres
+      uses: appleboy/ssh-action@v0.1.4
+      with:
+        host: ${{ secrets.sshHost }}
+        passphrase: ${{ secrets.sshPass }}
+        username: ${{ secrets.sshUser }}
+        key: ${{ secrets.sshKey }}
+        script: docker pull localhost:5000/postgres:${{ github.run_number }} && docker tag localhost:5000/postgres:${{ github.run_number }} localhost:5000/postgres:latest && docker push localhost:5000/postgres:latest
+
+    - name: SSH tag latest buildit
+      uses: appleboy/ssh-action@v0.1.4
+      with:
+        host: ${{ secrets.sshHost }}
+        passphrase: ${{ secrets.sshPass }}
+        username: ${{ secrets.sshUser }}
+        key: ${{ secrets.sshKey }}
+        script: docker pull localhost:5000/buildit:${{ github.run_number }} && docker tag localhost:5000/buildit:${{ github.run_number }} localhost:5000/buildit:latest && docker push localhost:5000/buildit:latest
+
+    - name: SCP Files
+      uses: appleboy/scp-action@v0.1.1
+      with:
+        host: ${{ secrets.sshHost }}
+        username: ${{ secrets.sshUser }}
+        passphrase: ${{ secrets.sshPass }}
+        key: ${{ secrets.sshKey }}
+        source: "./docker-compose.yml"
+        target: "deploy"
+        
+    - name: SSH deploy buildit
+      uses: appleboy/ssh-action@v0.1.4
+      with:
+        host: ${{ secrets.sshHost }}
+        passphrase: ${{ secrets.sshPass }}
+        username: ${{ secrets.sshUser }}
+        key: ${{ secrets.sshKey }}
+        script: cd deploy && docker-compose pull && docker-compose up -d
+
+    

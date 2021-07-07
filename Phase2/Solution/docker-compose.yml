@@ -1,0 +1,57 @@
+version: "3.7"  # optional since v1.27.0
+services:
+  postgres:
+    build: 
+        context: ./assets/postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    image: postgres_image
+    container_name: postgres_container
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+    container_name: mongo_container
+  redis:
+    build: 
+      context: ./pkg/cache/assets
+    container_name: redis_container
+    volumes: 
+      [~/redis:/data]
+  rentit:
+    build:
+      context: .
+      target: api
+    environment:
+      postgresConnectionString: dbname=postgres host=postgres_container password=postgres user=postgres sslmode=disable port=5432
+      mongoConnectionString: mongodb://mongo:mongo@mongo_container:27017
+    image: rentit
+    ports: 
+      - 8080:8080
+    container_name: rentit_container
+    depends_on: 
+      - postgres
+      - mongo
+      - redis
+  rentit-test:
+    build: 
+        context: .
+        target: test
+    image: rentit-test
+    environment:
+      websocketUrl: ws://rentit:8080/websocket
+      httpUrl: http://rentit:8080
+      grpcUrl: rentit:50051
+      redisUrl: redis:6379
+    container_name: rentit-test_container
+    depends_on: 
+      - rentit
+    # Overrides default entrypoint and have to duplicate entrypoint command here. 
+    # Because test should be run after api server is started
+    entrypoint: ["/bin/sh"] 
+    command: ./wait-for -t 60 rentit:8080 -- go test ./test...
